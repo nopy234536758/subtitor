@@ -1,0 +1,132 @@
+name: Build Linux DEB
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-cpu:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg ruby ruby-dev
+          sudo gem install fpm
+
+      - name: Install Python dependencies CPU
+        run: |
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install whisperx customtkinter opencv-python numpy Pillow moviepy pygame pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onedir --name Subtitor-CPU \
+            --hidden-import customtkinter \
+            --hidden-import PIL._tkinter_finder \
+            --hidden-import cv2 \
+            --collect-all customtkinter \
+            --add-data "subtitorlocalLOGO.png:." \
+            subtitor_local.py
+
+      - name: Create .desktop file
+        run: |
+          mkdir -p packaging/usr/share/applications
+          mkdir -p packaging/usr/share/icons/hicolor/256x256/apps
+          cp subtitorlocalLOGO.png packaging/usr/share/icons/hicolor/256x256/apps/subtitor.png
+          cat > packaging/usr/share/applications/subtitor.desktop << 'DESK'
+          [Desktop Entry]
+          Name=Subtitor Local
+          Exec=/opt/Subtitor-CPU/Subtitor-CPU
+          Icon=subtitor
+          Type=Application
+          Categories=AudioVideo;Video;
+          Comment=Sous-titres animés style CapCut
+          DESK
+
+      - name: Build DEB CPU
+        run: |
+          fpm -s dir -t deb \
+            -n subtitor-cpu \
+            -v 1.0.0 \
+            --architecture amd64 \
+            --description "Subtitor Local — sous-titres animés (CPU)" \
+            --depends ffmpeg \
+            -p Subtitor-CPU.deb \
+            dist/Subtitor-CPU/=/opt/Subtitor-CPU \
+            packaging/usr/share/=/usr/share/
+
+      - name: Upload DEB CPU
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subtitor-Linux-CPU-deb
+          path: Subtitor-CPU.deb
+
+  build-gpu:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg ruby ruby-dev
+          sudo gem install fpm
+
+      - name: Install Python dependencies GPU
+        run: |
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+          pip install whisperx customtkinter opencv-python numpy Pillow moviepy pygame pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onedir --name Subtitor-GPU \
+            --hidden-import customtkinter \
+            --hidden-import PIL._tkinter_finder \
+            --hidden-import cv2 \
+            --collect-all customtkinter \
+            --add-data "subtitorlocalLOGO.png:." \
+            subtitor_local.py
+
+      - name: Create .desktop file
+        run: |
+          mkdir -p packaging/usr/share/applications
+          mkdir -p packaging/usr/share/icons/hicolor/256x256/apps
+          cp subtitorlocalLOGO.png packaging/usr/share/icons/hicolor/256x256/apps/subtitor.png
+          cat > packaging/usr/share/applications/subtitor.desktop << 'DESK'
+          [Desktop Entry]
+          Name=Subtitor Local (GPU)
+          Exec=/opt/Subtitor-GPU/Subtitor-GPU
+          Icon=subtitor
+          Type=Application
+          Categories=AudioVideo;Video;
+          Comment=Sous-titres animés style CapCut (GPU)
+          DESK
+
+      - name: Build DEB GPU
+        run: |
+          fpm -s dir -t deb \
+            -n subtitor-gpu \
+            -v 1.0.0 \
+            --architecture amd64 \
+            --description "Subtitor Local — sous-titres animés (GPU Nvidia)" \
+            --depends ffmpeg \
+            -p Subtitor-GPU.deb \
+            dist/Subtitor-GPU/=/opt/Subtitor-GPU \
+            packaging/usr/share/=/usr/share/
+
+      - name: Upload DEB GPU
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subtitor-Linux-GPU-deb
+          path: Subtitor-GPU.deb
