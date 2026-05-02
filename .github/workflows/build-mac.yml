@@ -1,0 +1,68 @@
+name: Build macOS APP
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-cpu:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: brew install ffmpeg create-dmg
+
+      - name: Install Python dependencies
+        run: |
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install whisperx customtkinter opencv-python numpy Pillow moviepy pygame pyinstaller
+
+      - name: Convert PNG to ICNS
+        run: |
+          mkdir -p subtitor.iconset
+          sips -z 16 16   subtitorlocalLOGO.png --out subtitor.iconset/icon_16x16.png
+          sips -z 32 32   subtitorlocalLOGO.png --out subtitor.iconset/icon_16x16@2x.png
+          sips -z 32 32   subtitorlocalLOGO.png --out subtitor.iconset/icon_32x32.png
+          sips -z 64 64   subtitorlocalLOGO.png --out subtitor.iconset/icon_32x32@2x.png
+          sips -z 128 128 subtitorlocalLOGO.png --out subtitor.iconset/icon_128x128.png
+          sips -z 256 256 subtitorlocalLOGO.png --out subtitor.iconset/icon_128x128@2x.png
+          sips -z 256 256 subtitorlocalLOGO.png --out subtitor.iconset/icon_256x256.png
+          sips -z 512 512 subtitorlocalLOGO.png --out subtitor.iconset/icon_256x256@2x.png
+          sips -z 512 512 subtitorlocalLOGO.png --out subtitor.iconset/icon_512x512.png
+          iconutil -c icns subtitor.iconset -o subtitorlocalLOGO.icns
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onedir --windowed --name Subtitor \
+            --icon subtitorlocalLOGO.icns \
+            --hidden-import customtkinter \
+            --hidden-import PIL._tkinter_finder \
+            --hidden-import cv2 \
+            --collect-all customtkinter \
+            --add-data "subtitorlocalLOGO.png:." \
+            subtitor_local.py
+
+      - name: Remove quarantine
+        run: xattr -cr dist/Subtitor.app
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "Subtitor Local" \
+            --window-size 600 400 \
+            --icon-size 128 \
+            --icon "Subtitor.app" 150 150 \
+            --app-drop-link 450 150 \
+            Subtitor-macOS.dmg \
+            dist/
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subtitor-macOS
+          path: Subtitor-macOS.dmg
