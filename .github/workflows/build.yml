@@ -1,0 +1,64 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-cpu:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Convert PNG to ICO
+        run: |
+          pip install Pillow
+          python -c "from PIL import Image; img = Image.open('subtitorlocalLOGO.png').convert('RGBA'); img.save('subtitorlocalLOGO.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)])"
+
+      - name: Install dependencies CPU
+        run: |
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install whisperx customtkinter opencv-python numpy Pillow moviepy pygame pyinstaller
+
+      - name: Build EXE CPU
+        run: |
+          pyinstaller --onefile --windowed --name Subtitor-CPU --icon subtitorlocalLOGO.ico --hidden-import customtkinter --hidden-import PIL._tkinter_finder --hidden-import cv2 --collect-all customtkinter --add-data "subtitorlocalLOGO.png;." subtitor_local.py
+
+      - name: Upload CPU
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subtitor-Windows-CPU
+          path: dist/Subtitor-CPU.exe
+
+  build-gpu:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Convert PNG to ICO
+        run: |
+          pip install Pillow
+          python -c "from PIL import Image; img = Image.open('subtitorlocalLOGO.png').convert('RGBA'); img.save('subtitorlocalLOGO.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(32,32),(16,16)])"
+
+      - name: Install dependencies GPU
+        run: |
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+          pip install whisperx customtkinter opencv-python numpy Pillow moviepy pygame pyinstaller
+
+      - name: Build EXE GPU
+        run: |
+          pyinstaller --onefile --windowed --name Subtitor-GPU --icon subtitorlocalLOGO.ico --hidden-import customtkinter --hidden-import PIL._tkinter_finder --hidden-import cv2 --collect-all customtkinter --add-data "subtitorlocalLOGO.png;." subtitor_local.py
+
+      - name: Upload GPU
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subtitor-Windows-GPU
+          path: dist/Subtitor-GPU.exe
